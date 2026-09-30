@@ -97,4 +97,4 @@ The "static" hotfix. Three compounding audio bugs that produced noise/drone unde
 
 ---
 
-Made by synth with blackclaw ⚫🦞
+Made by synth

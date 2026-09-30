@@ -73,7 +73,7 @@ inline const PresetInfo kPresets[] = {
     {"factory-47", "Dexed Crystal", "keys"},
     {"factory-48", "Zyn Soft Pad", "pads"},
     {"factory-49", "Yoshimi Dream", "arps"},
-    {"factory-50", "blackclaws Grid", "synthwave"},
+    {"factory-50", "Neon Grid", "synthwave"},
     {"factory-51", "Dreamscape", "pads"},
     {"factory-52", "Dark Matter", "pads"},
     {"factory-53", "Heavenly Choir", "pads"},
