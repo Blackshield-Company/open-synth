@@ -151,7 +151,6 @@ Bundled sample libraries are CC0 / public domain (see `samples/` submodule sourc
 
 ## Credits
 
-Made by synth — built on the JUCE framework.
 
 ---
 
