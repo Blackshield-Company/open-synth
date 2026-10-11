@@ -107,6 +107,7 @@ juce::File getSampleManifestPath(const char* id)
     // 3. User data directory — the canonical install location for plugin
     //    (VST3/CLAP) use, where the "executable" is the DAW, not Open Synth.
     //    Linux: ~/.config/OpenSynth/samples
+    //    Windows: %APPDATA%\OpenSynth\samples
     manifest = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
                    .getChildFile("OpenSynth/samples/manifests").getChildFile(fileName);
     if (manifest.existsAsFile()) return manifest;

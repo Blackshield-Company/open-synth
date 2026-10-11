@@ -65,6 +65,27 @@ Originally prototyped in Flutter/Dart, the engine was rebuilt in native C++ for 
 - **Audio recording** built-in
 - **CPU load meter** and oscilloscope
 
+## Download
+
+Prebuilt binaries for **Windows (x86_64)**, **macOS (universal)**, and **Linux (x86_64)** are attached to every
+[GitHub Release](https://github.com/synthalorian/open-synth/releases/latest), built by the
+[Build workflow](.github/workflows/build.yml). Each platform ships three archives: `standalone`, `vst3`, and `clap`.
+Bleeding-edge builds from `master` are available as workflow artifacts on the [Actions tab](https://github.com/synthalorian/open-synth/actions/workflows/build.yml) (requires a GitHub login, kept 14 days).
+
+### Windows install
+
+1. Download `open-synth-windows-x86_64-standalone.zip` (and/or the `-vst3.zip` / `-clap.zip`) from the latest release.
+2. **Standalone:** extract anywhere and run `Open Synth.exe`. Keep the `samples\` folder next to the `.exe`.
+3. **VST3:** extract `Open Synth.vst3` into `C:\Program Files\Common Files\VST3\`.
+4. **CLAP:** extract `Open Synth.clap` into `C:\Program Files\Common Files\CLAP\`.
+5. **Samples for plugins:** in a DAW, Open Synth looks for its sample library in `%APPDATA%\OpenSynth\samples\`
+   (the VST3/CLAP archives do not include samples). Copy the `samples\` folder from the standalone zip there,
+   so you end up with `%APPDATA%\OpenSynth\samples\manifests\...`. Without it, sample-based presets
+   (pianos, drums, bass, guitars) are silent; synth presets work regardless.
+
+Notes: the binaries are not code-signed, so Windows SmartScreen may warn on first launch ("More info" → "Run anyway").
+Windows 10/11 x64 only; there is no ARM64 build or installer yet.
+
 ## Architecture
 
 ```
@@ -120,12 +141,27 @@ cd build
 ./preset_browser_test                  # instrument browser UI logic (headless)
 ```
 
-### macOS / Windows
+### macOS
 ```bash
 mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -DJUCE_DIR=/path/to/JUCE
 cmake --build . --config Release
 ```
+
+### Windows
+Requires Visual Studio 2022 (the "Desktop development with C++" workload), CMake 3.22+, and Git.
+From a "Developer PowerShell for VS 2022":
+```powershell
+git clone --recurse-submodules https://github.com/synthalorian/open-synth.git
+cd open-synth
+git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git ..\JUCE
+cmake -S . -B build -DJUCE_DIR="$PWD\..\JUCE"
+cmake --build build --config Release
+.\build\Release\fx_tests.exe
+```
+Outputs land in `build\OpenSynth_artefacts\Release\` (`Standalone\Open Synth.exe`, `VST3\Open Synth.vst3`,
+`CLAP\Open Synth.clap`). With the Visual Studio generator, test executables are under `build\Release\`.
+This is the same configuration the `windows-x86_64` CI job builds on every push.
 
 ## Roadmap
 
