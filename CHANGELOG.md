@@ -4,12 +4,17 @@ All notable changes to Open Synth are documented here.
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-10-12
+
 ### Fixed
 - **User presets are keyed by parameter ID.** `user_presets.json` used to key values by display name, and 68 parameters share only 45 names, so one value drove several parameters (`On` toggled all three FX slots and the arpeggiator; osc waveforms/volumes and the amp/filter envelopes were coupled). Saving now writes stable parameter IDs. Old display-name presets still load.
 
 ### Added
 - **Import presets** button in the preset browser: pick a JSON file (an array of presets, one preset, or `{"presets": [...]}`) and it is merged into your user presets. Presets with the same name are replaced.
 - `user_preset_test`: ID round trip, legacy loading, and import merge.
+
+### Downloads are unsigned
+Windows SmartScreen: click **More info**, then **Run anyway**. macOS Gatekeeper: right-click the .pkg and choose **Open**, or run `xattr -dr com.apple.quarantine` on the installed bundles. See the README for details. Check downloads with `sha256sum -c SHA256SUMS --ignore-missing`.
 
 ## [2.1.0] — 2026-10-12
 

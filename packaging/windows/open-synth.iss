@@ -1,5 +1,5 @@
 ; Inno Setup script for Open Synth (Windows x64).
-; Built in CI by:  iscc /DAppVersion=2.1.0 /DArtefacts=<build>\OpenSynth_artefacts\Release /DOutputDir=dist packaging\windows\open-synth.iss
+; Built in CI by:  iscc /DAppVersion=2.2.0 /DArtefacts=<build>\OpenSynth_artefacts\Release /DOutputDir=dist packaging\windows\open-synth.iss
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
