@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(OpenSynth VERSION 2.1.0)
+project(OpenSynth VERSION 2.2.0)
 
 # MSVC: M_PI lives behind _USE_MATH_DEFINES; windows.h min/max macros
 # break std::min/std::max without NOMINMAX.

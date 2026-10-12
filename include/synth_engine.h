@@ -245,7 +245,7 @@ public:
 
     // Info
     const char* getName() const { return "OpenAmp Synth Engine"; }
-    const char* getVersion() const { return "2.1.0"; }
+    const char* getVersion() const { return "2.2.0"; }
 
     // Recording
     void startRecording(const char* path) { recorder_.startRecording(path); }

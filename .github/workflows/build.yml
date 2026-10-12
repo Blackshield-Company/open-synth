@@ -95,6 +95,15 @@ jobs:
             ./build/Release/fx_tests.exe
           fi
 
+      - name: Run user preset tests
+        shell: bash
+        run: |
+          if [ -x ./build/user_preset_test ]; then
+            ./build/user_preset_test
+          else
+            ./build/Release/user_preset_test.exe
+          fi
+
       - name: Version
         id: ver
         shell: bash
