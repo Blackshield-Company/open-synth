@@ -19,11 +19,11 @@ build-debug/
 .dart_tool/
 .flutter-plugins-dependencies
 .idea/
-android/
-ios/
-linux/
-macos/
-windows/
+/android/
+/ios/
+/linux/
+/macos/
+/windows/
 assets/samples/
 .sandbox-tmp/
 libs/JUCE/
