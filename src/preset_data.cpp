@@ -104,6 +104,31 @@ juce::File getSampleManifestPath(const char* id)
     manifest = exeDir.getParentDirectory().getChildFile("samples/manifests").getChildFile(fileName);
     if (manifest.existsAsFile()) return manifest;
 
+    // 2b. Beside the plugin module itself. In a DAW the "executable" is the
+    //     host, but currentApplicationFile is the VST3/CLAP/AU file, and the
+    //     build/installers place samples/ inside or next to it.
+    {
+        const juce::File plugin = juce::File::getSpecialLocation(juce::File::currentApplicationFile);
+        const juce::File candidates[] = {
+            plugin.getParentDirectory(),                               // CLAP: <dir>/samples, VST3 .so/.dll dir
+            plugin.getChildFile("Contents/MacOS"),                     // macOS bundles
+            plugin.getChildFile("Contents/Resources"),
+            plugin.getChildFile("Contents/x86_64-linux"),              // Linux VST3 bundle
+            plugin.getChildFile("Contents/x86_64-win"),                // Windows VST3 bundle
+            plugin.getParentDirectory().getParentDirectory(),
+        };
+        for (const auto& dir : candidates) {
+            manifest = dir.getChildFile("samples/manifests").getChildFile(fileName);
+            if (manifest.existsAsFile()) return manifest;
+        }
+    }
+
+    // 2c. System-wide shared library (installers may place samples here):
+    //     Windows: C:\ProgramData\OpenSynth\samples, macOS: /Library/OpenSynth/samples
+    manifest = juce::File::getSpecialLocation(juce::File::commonApplicationDataDirectory)
+                   .getChildFile("OpenSynth/samples/manifests").getChildFile(fileName);
+    if (manifest.existsAsFile()) return manifest;
+
     // 3. User data directory — the canonical install location for plugin
     //    (VST3/CLAP) use, where the "executable" is the DAW, not Open Synth.
     //    Linux: ~/.config/OpenSynth/samples
