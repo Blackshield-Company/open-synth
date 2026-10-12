@@ -252,7 +252,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          notes=$(awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \\[/{f=0} f' CHANGELOG.md)
+          notes=$(awk -v h="## [${GITHUB_REF_NAME#v}]" 'index($0, h) == 1 {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md)
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
             gh release create "$GITHUB_REF_NAME" --title "Open Synth $GITHUB_REF_NAME" --notes "$notes"
           gh release upload "$GITHUB_REF_NAME" dist/* --clobber
