@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(OpenSynth VERSION 2.0.2)
+project(OpenSynth VERSION 2.1.0)
 
 # MSVC: M_PI lives behind _USE_MATH_DEFINES; windows.h min/max macros
 # break std::min/std::max without NOMINMAX.
@@ -52,6 +52,8 @@ endif()
 # On desktop we build Standalone + VST3 + CLAP.
 if(IS_IOS OR IS_ANDROID)
     set(OPEN_SYNTH_FORMATS Standalone)
+elseif(APPLE)
+    set(OPEN_SYNTH_FORMATS Standalone VST3 AU)
 else()
     set(OPEN_SYNTH_FORMATS Standalone VST3)
 endif()
@@ -236,6 +238,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # ── Copy sample libraries to build output ────────────────────────────────────
+# Each format gets its own samples/ folder: beside the binary on Windows/Linux,
+# and in Contents/Resources on macOS bundles (keeps code-signing seals valid).
 set(SAMPLE_DIRS
     piano-upright-kw
     piano-splendid-grand
@@ -244,48 +248,33 @@ set(SAMPLE_DIRS
     guitar-spanish-classical
     drums-colombo-adk
     guitar-electric-clean
+    manifests
 )
 
-foreach(dir ${SAMPLE_DIRS})
-    if(EXISTS "${CMAKE_SOURCE_DIR}/samples/${dir}")
-        add_custom_command(TARGET OpenSynth_Standalone POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_SOURCE_DIR}/samples/${dir}"
-            "$<TARGET_FILE_DIR:OpenSynth_Standalone>/samples/${dir}"
-        )
-        add_custom_command(TARGET OpenSynth_VST3 POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_SOURCE_DIR}/samples/${dir}"
-            "$<TARGET_FILE_DIR:OpenSynth_VST3>/samples/${dir}"
-        )
-        if(NOT IS_IOS AND NOT IS_ANDROID)
-            add_custom_command(TARGET OpenSynth_CLAP POST_BUILD
+set(OPEN_SYNTH_SAMPLE_TARGETS OpenSynth_Standalone OpenSynth_VST3)
+if(NOT IS_IOS AND NOT IS_ANDROID)
+    list(APPEND OPEN_SYNTH_SAMPLE_TARGETS OpenSynth_CLAP)
+endif()
+if(TARGET OpenSynth_AU)
+    list(APPEND OPEN_SYNTH_SAMPLE_TARGETS OpenSynth_AU)
+endif()
+
+foreach(tgt ${OPEN_SYNTH_SAMPLE_TARGETS})
+    if(APPLE AND NOT IS_IOS)
+        set(sample_dest "$<TARGET_BUNDLE_CONTENT_DIR:${tgt}>/Resources/samples")
+    else()
+        set(sample_dest "$<TARGET_FILE_DIR:${tgt}>/samples")
+    endif()
+    foreach(dir ${SAMPLE_DIRS})
+        if(EXISTS "${CMAKE_SOURCE_DIR}/samples/${dir}")
+            add_custom_command(TARGET ${tgt} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "${CMAKE_SOURCE_DIR}/samples/${dir}"
-                "$<TARGET_FILE_DIR:OpenSynth_CLAP>/samples/${dir}"
+                "${sample_dest}/${dir}"
             )
         endif()
-    endif()
+    endforeach()
 endforeach()
-
-# Also copy manifests
-add_custom_command(TARGET OpenSynth_Standalone POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_SOURCE_DIR}/samples/manifests"
-    "$<TARGET_FILE_DIR:OpenSynth_Standalone>/samples/manifests"
-)
-add_custom_command(TARGET OpenSynth_VST3 POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_SOURCE_DIR}/samples/manifests"
-    "$<TARGET_FILE_DIR:OpenSynth_VST3>/samples/manifests"
-)
-if(NOT IS_IOS AND NOT IS_ANDROID)
-    add_custom_command(TARGET OpenSynth_CLAP POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/samples/manifests"
-        "$<TARGET_FILE_DIR:OpenSynth_CLAP>/samples/manifests"
-    )
-endif()
 
 # Linux specific
 if(UNIX AND NOT APPLE AND NOT IS_ANDROID)
@@ -429,4 +418,26 @@ target_link_libraries(preset_browser_test PRIVATE
 target_compile_definitions(preset_browser_test PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
+)
+
+# ── Offline demo renderer (headless) ─────────────────────────────────────────
+add_executable(demo_render
+    tools/demo_render.cpp
+    ${DSP_SOURCES}
+    src/instrument_realism.cpp
+    src/preset_data.cpp
+    src/synth_engine_wrapper.cpp
+)
+target_include_directories(demo_render PRIVATE src dsp include)
+target_link_libraries(demo_render PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_formats
+    juce::juce_audio_processors
+    juce::juce_core
+    juce::juce_dsp
+)
+target_compile_definitions(demo_render PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_USE_FLAC=1
 )

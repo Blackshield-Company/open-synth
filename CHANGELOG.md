@@ -4,11 +4,27 @@ All notable changes to Open Synth are documented here.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-10-12
+
+Installers, signing hooks, and a demo.
+
 ### Added
+- **Installers built in CI for every release tag:**
+  - Windows: an Inno Setup `setup.exe`. VST3 goes to `Common Files\VST3`, CLAP to `Common Files\CLAP` and the standalone to `Program Files\Open Synth`, and each component is optional.
+  - macOS: a universal (arm64 + x86_64) `.pkg` inside a `.dmg`, with **AU** (new), VST3, CLAP and the standalone app.
+  - Linux: a `.tar.gz` with `install.sh` (`~/.vst3`, `~/.clap`, `~/.local/opt/open-synth`, launcher, desktop entry, `--uninstall`), plus an AppImage of the standalone.
+  - `SHA256SUMS` for all release assets, published by a single release job.
+- **Optional code signing:** Authenticode on Windows, and Developer ID with the hardened runtime, a signed pkg and notarytool notarization on macOS. These steps run only when the signing secrets are configured, and are skipped cleanly otherwise. The README lists the secrets.
+- **Demo:** `demo_render`, a headless offline renderer that plays a scripted phrase through six factory presets. It produced the demo in `docs/media/open-synth-demo.{mp3,ogg}`. There is also a README screenshot of the standalone running on Linux.
+- CI smoke test on Linux: installs the tarball into a temporary home and runs the standalone under Xvfb.
 - **Instrument browser quick categories:** one-touch Juno-Di style buttons (All / Piano / Organ / Drums / Bass / Pads) above the preset list; the dropdown now lists the real library categories, derived from the 5,600-preset library instead of a stale hardcoded list.
 - **Keyboard navigation in the preset browser:** Up/Down auditions presets live, Enter loads and closes, Escape closes, Left/Right cycles categories when the list has focus.
 - **Now-playing state:** the browser header shows the currently loaded instrument, its row is highlighted in neon yellow with a ▶ marker, and opening the browser preselects and scrolls to it.
 - `preset_browser_test`: headless UI-logic tests covering category switching, keyboard navigation, and loaded-instrument state.
+
+### Changed
+- Plugins now find the samples bundled inside or beside their own VST3/CLAP/AU file, as well as in a shared `ProgramData`/`/Library` location. Previously the samples had to be copied by hand into the user data folder.
+- On macOS the samples live in `Contents/Resources` instead of `Contents/MacOS`, so the bundles can be code-signed.
 
 ### Fixed
 - Category filter matched almost nothing: the dropdown used title-case names ("Pads", "Keys") while the library uses snake_case ("synth_pad"). Filters now match whole words against normalized categories, so "Pad" covers `synth_pad`, "Piano" covers `upright_piano`/`synth_piano`, etc.

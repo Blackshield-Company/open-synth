@@ -19,6 +19,9 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    env:
+      HAS_WIN_CERT: ${{ secrets.WINDOWS_CERT_PFX != '' }}
+      HAS_APPLE_CERT: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12 != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +55,7 @@ jobs:
       - name: Fetch JUCE 8.0.12
         # JUCE isn't a submodule — local dev uses ~/.juce. CI fetches the
         # pinned release tag instead and passes -DJUCE_DIR.
+        shell: bash
         run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git "$RUNNER_TEMP/JUCE"
 
       - name: Init clap-juce-extensions submodule
@@ -69,10 +73,15 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libasound2-dev libx11-dev libxext-dev libxinerama-dev \
             libxrandr-dev libxcursor-dev libgl1-mesa-dev \
-            libfreetype6-dev libfontconfig1-dev
+            libfreetype6-dev libfontconfig1-dev libfuse2t64
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DJUCE_DIR="$RUNNER_TEMP/JUCE"
+        shell: bash
+        run: |
+          extra=""
+          # Universal (arm64 + x86_64) binaries on macOS
+          if [ "$RUNNER_OS" = "macOS" ]; then extra='-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0'; fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DJUCE_DIR="$RUNNER_TEMP/JUCE" $extra
 
       - name: Build
         run: cmake --build build --config Release -j 4
@@ -86,37 +95,135 @@ jobs:
             ./build/Release/fx_tests.exe
           fi
 
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          v=$(sed -n 's/^project(OpenSynth VERSION \([0-9.]*\)).*/\1/p' CMakeLists.txt)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF_NAME#v}" != "$v" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match CMake version $v"; exit 1
+          fi
+
+      # ── Linux: tar.gz with install script + AppImage for the standalone ──
       - name: Package (Linux)
         if: runner.os == 'Linux'
         shell: bash
+        env:
+          V: ${{ steps.ver.outputs.version }}
         run: |
+          set -euo pipefail
+          art=build/OpenSynth_artefacts/Release
           mkdir -p dist
-          tar -czf dist/open-synth-${{ matrix.name }}-standalone.tar.gz \
-            -C build/OpenSynth_artefacts/Release/Standalone .
-          tar -czf dist/open-synth-${{ matrix.name }}-vst3.tar.gz \
-            -C build/OpenSynth_artefacts/Release/VST3 "Open Synth.vst3"
-          tar -czf dist/open-synth-${{ matrix.name }}-clap.tar.gz \
-            -C build/OpenSynth_artefacts/Release/CLAP .
+          stage="$RUNNER_TEMP/open-synth-$V-linux-x86_64"
+          mkdir -p "$stage"
+          cp -R "$art/VST3" "$art/CLAP" "$art/Standalone" "$stage/"
+          cp packaging/linux/install.sh LICENSE "$stage/"
+          cp assets/icon_512.png "$stage/open-synth.png"
+          tar -C "$RUNNER_TEMP" -czf "dist/open-synth-$V-linux-x86_64.tar.gz" "open-synth-$V-linux-x86_64"
+
+          # AppImage (standalone only); samples ride inside usr/bin/samples
+          curl -fsSL -o "$RUNNER_TEMP/linuxdeploy" \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/linuxdeploy"
+          appdir="$RUNNER_TEMP/AppDir"
+          mkdir -p "$appdir/usr/bin"
+          cp -R "$art/Standalone/." "$appdir/usr/bin/"
+          mv "$appdir/usr/bin/Open Synth" "$appdir/usr/bin/open-synth"
+          cp assets/icon_512.png "$RUNNER_TEMP/open-synth.png"
+          printf '[Desktop Entry]\nType=Application\nName=Open Synth\nExec=open-synth\nIcon=open-synth\nCategories=AudioVideo;Audio;Music;\n' > "$RUNNER_TEMP/open-synth.desktop"
+          export APPIMAGE_EXTRACT_AND_RUN=1 LDAI_OUTPUT="dist/open-synth-$V-x86_64.AppImage"
+          "$RUNNER_TEMP/linuxdeploy" --appdir "$appdir" \
+            -e "$appdir/usr/bin/open-synth" -d "$RUNNER_TEMP/open-synth.desktop" \
+            -i "$RUNNER_TEMP/open-synth.png" --output appimage
+
+      - name: Smoke test (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get install -y --no-install-recommends xvfb
+          tmp=$(mktemp -d)
+          tar -C "$tmp" -xzf dist/open-synth-*-linux-x86_64.tar.gz
+          HOME="$tmp/home" bash "$tmp"/open-synth-*/install.sh
+          test -f "$tmp/home/.vst3/Open Synth.vst3/Contents/x86_64-linux/Open Synth.so"
+          test -f "$tmp/home/.clap/Open Synth.clap"
+          set +e
+          timeout 15 xvfb-run -a "$tmp/home/.local/opt/open-synth/Open Synth"; rc=$?
+          set -e
+          [ "$rc" = 124 ] || { echo "standalone exited early ($rc)"; exit 1; }
+          echo "standalone ran 15 s under Xvfb"
+
+      # ── Windows: Inno Setup installer ──
+      - name: Sign binaries (Windows, optional)
+        if: runner.os == 'Windows' && env.HAS_WIN_CERT == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $pfx = "$env:RUNNER_TEMP\cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_PFX))
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
+          "SIGNTOOL=$($signtool.FullName)" | Out-File -Append $env:GITHUB_ENV
+          $art = "build/OpenSynth_artefacts/Release"
+          $files = @("$art/Standalone/Open Synth.exe", "$art/CLAP/Open Synth.clap") + (Get-ChildItem "$art/VST3/Open Synth.vst3" -Recurse -Filter *.vst3 -File | % FullName)
+          foreach ($f in $files) { & $signtool.FullName sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 "$f"; if ($LASTEXITCODE) { exit 1 } }
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          V: ${{ steps.ver.outputs.version }}
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          $art = "build/OpenSynth_artefacts/Release"
-          Compress-Archive -Path "$art/Standalone/*" -DestinationPath "dist/open-synth-${{ matrix.name }}-standalone.zip"
-          Compress-Archive -Path "$art/VST3/Open Synth.vst3" -DestinationPath "dist/open-synth-${{ matrix.name }}-vst3.zip"
-          Compress-Archive -Path "$art/CLAP/*" -DestinationPath "dist/open-synth-${{ matrix.name }}-clap.zip"
+          $art = (Resolve-Path "build/OpenSynth_artefacts/Release").Path
+          $out = (Resolve-Path dist).Path
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc "/DAppVersion=$env:V" "/DArtefacts=$art" "/DOutputDir=$out" packaging\windows\open-synth.iss
+          if ($LASTEXITCODE) { exit 1 }
+
+      - name: Sign installer (Windows, optional)
+        if: runner.os == 'Windows' && env.HAS_WIN_CERT == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          Get-ChildItem dist/*.exe | % { & $env:SIGNTOOL sign /f "$env:RUNNER_TEMP\cert.pfx" /p $env:WINDOWS_CERT_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 $_.FullName; if ($LASTEXITCODE) { exit 1 } }
+          Remove-Item "$env:RUNNER_TEMP\cert.pfx" -Force
+
+      # ── macOS: .pkg inside a .dmg ──
+      - name: Import signing certificates (macOS, optional)
+        if: runner.os == 'macOS' && env.HAS_APPLE_CERT == 'true'
+        shell: bash
+        env:
+          APPLE_DEVELOPER_ID_CERT_P12: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12 }}
+          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          kc="$RUNNER_TEMP/signing.keychain-db"; kcpw=$(uuidgen)
+          echo "$APPLE_DEVELOPER_ID_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$kcpw" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$kcpw" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$APPLE_DEVELOPER_ID_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          security set-key-partition-list -S apple-tool:,apple: -k "$kcpw" "$kc"
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
         shell: bash
+        env:
+          V: ${{ steps.ver.outputs.version }}
+          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
+          APPLE_DEVELOPER_ID_INSTALLER: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          mkdir -p dist
-          cd build/OpenSynth_artefacts/Release
-          zip -r "$GITHUB_WORKSPACE/dist/open-synth-${{ matrix.name }}-standalone.zip" Standalone/
-          zip -r "$GITHUB_WORKSPACE/dist/open-synth-${{ matrix.name }}-vst3.zip" "VST3/Open Synth.vst3"
-          zip -r "$GITHUB_WORKSPACE/dist/open-synth-${{ matrix.name }}-clap.zip" CLAP/
+          lipo -info "build/OpenSynth_artefacts/Release/Standalone/Open Synth.app/Contents/MacOS/Open Synth"
+          packaging/macos/build_pkg.sh "$V" build/OpenSynth_artefacts/Release dist
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -124,12 +231,28 @@ jobs:
           name: open-synth-${{ matrix.name }}
           path: dist/
           retention-days: 14
+          compression-level: 0
 
-      - name: Attach to release (tag builds)
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash  # pwsh would eat ${GITHUB_REF_NAME} on Windows runners
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cp docs/media/open-synth-demo.mp3 docs/media/open-synth-demo.ogg dist/ 2>/dev/null || true
+          cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: Create release and upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes || true
-          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          notes=$(awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \\[/{f=0} f' CHANGELOG.md)
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --title "Open Synth $GITHUB_REF_NAME" --notes "$notes"
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
