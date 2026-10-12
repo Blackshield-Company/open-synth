@@ -55,6 +55,7 @@ jobs:
       - name: Fetch JUCE 8.0.12
         # JUCE isn't a submodule — local dev uses ~/.juce. CI fetches the
         # pinned release tag instead and passes -DJUCE_DIR.
+        shell: bash
         run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git "$RUNNER_TEMP/JUCE"
 
       - name: Init clap-juce-extensions submodule
