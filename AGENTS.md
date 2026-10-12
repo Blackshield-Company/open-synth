@@ -17,5 +17,4 @@ JUCE 8 + C++20, CMake. UI direction: synthwave '84 is the brand here (this is th
 - **CLI naming:** the binary is the bare project name. Never a `-cli` suffix.
 - **Commits:** conventional commits (`feat:`, `fix:`, `chore:`...). Local commits are fine.
 - **NEVER:** push to a remote, create GitHub remotes, force-push, rewrite/delete tags, or touch `.env`/credential files.
-- **No support/donation links** (BuyMeACoffee etc.) — the user removed those deliberately.
 - **Done means verified:** build it AND run it before claiming completion. No stubs-as-deliverables.
