@@ -388,6 +388,10 @@ public:
     std::function<void(const UserPreset&)> onUserPresetSelected;
 
     void refreshUserPresets();
+    // Merge presets from a JSON file into the user preset store and show
+    // user presets. Returns number imported, -1 on failure.
+    int importPresetsFromFile(const juce::File& file);
+    std::function<void(int)> onPresetsImported; // arg = count, -1 = error
 
     // Currently loaded instrument shown in the browser (-1 = user preset / none)
     void setCurrentPreset(int factoryIndex, const juce::String& name);
@@ -405,6 +409,8 @@ private:
     juce::ListBox presetList_;
     juce::TextButton closeButton_;
     juce::TextButton savePresetButton_;
+    juce::TextButton importPresetsButton_;
+    std::unique_ptr<juce::FileChooser> importChooser_;
     juce::Label titleLabel_;
     juce::Label nowPlayingLabel_;
     juce::ComboBox categoryFilter_;

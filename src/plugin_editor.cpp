@@ -725,6 +725,25 @@ PresetBrowser::PresetBrowser()
     };
     addAndMakeVisible(savePresetButton_);
 
+    importPresetsButton_.setButtonText("Import presets");
+    importPresetsButton_.setColour(juce::TextButton::buttonColourId, SynthColors::surface());
+    importPresetsButton_.setColour(juce::TextButton::textColourOffId, SynthColors::text());
+    importPresetsButton_.setTooltip("Merge presets from a JSON file into your user presets");
+    importPresetsButton_.onClick = [this]() {
+        importChooser_ = std::make_unique<juce::FileChooser>(
+            "Import presets", juce::File::getSpecialLocation(juce::File::userHomeDirectory), "*.json");
+        importChooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this](const juce::FileChooser& fc) {
+                auto file = fc.getResult();
+                if (file == juce::File())
+                    return;
+                int n = importPresetsFromFile(file);
+                if (onPresetsImported)
+                    onPresetsImported(n);
+            });
+    };
+    addAndMakeVisible(importPresetsButton_);
+
     showUserPresetsButton_.setButtonText("User Presets");
     showUserPresetsButton_.setColour(juce::ToggleButton::tickColourId, SynthColors::neonYellow());
     showUserPresetsButton_.setColour(juce::ToggleButton::tickDisabledColourId, SynthColors::textDim());
@@ -780,6 +799,19 @@ PresetBrowser::PresetBrowser()
     addAndMakeVisible(presetList_);
 
     rebuildFilter();
+}
+
+int PresetBrowser::importPresetsFromFile(const juce::File& file)
+{
+    UserPresetManager manager;
+    int n = manager.importPresetsFromFile(file);
+    if (n > 0)
+    {
+        showingUserPresets_ = true;
+        showUserPresetsButton_.setToggleState(true, juce::dontSendNotification);
+    }
+    refreshUserPresets();
+    return n;
 }
 
 void PresetBrowser::refreshUserPresets()
@@ -1074,6 +1106,8 @@ void PresetBrowser::resized()
 
     auto filterRow = b.removeFromTop(30);
     savePresetButton_.setBounds(filterRow.removeFromLeft(100));
+    filterRow.removeFromLeft(8);
+    importPresetsButton_.setBounds(filterRow.removeFromLeft(120));
     filterRow.removeFromLeft(8);
     showUserPresetsButton_.setBounds(filterRow.removeFromLeft(110));
     filterRow.removeFromLeft(8);
@@ -1706,6 +1740,10 @@ OpenSynthEditor::OpenSynthEditor(OpenSynthProcessor& proc)
     };
     presetBrowser_.onSavePresetRequested = [this]() {
         saveCurrentPreset();
+    };
+    presetBrowser_.onPresetsImported = [this](int n) {
+        showUndoFeedback(n > 0 ? "Imported " + juce::String(n) + (n == 1 ? " preset" : " presets")
+                               : juce::String("Import failed"));
     };
     presetBrowser_.onUserPresetSelected = [this](const UserPreset& preset) {
         userPresetManager_.loadPreset(preset, processor_.getParameters());

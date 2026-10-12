@@ -420,6 +420,21 @@ target_compile_definitions(preset_browser_test PRIVATE
     JUCE_USE_CURL=0
 )
 
+# ── User Preset Tests (ID-keyed save/load, legacy load, import) ────────────
+add_executable(user_preset_test
+    tests/user_preset_test.cpp
+)
+target_include_directories(user_preset_test PRIVATE src dsp include)
+target_link_libraries(user_preset_test PRIVATE
+    OpenSynth
+    juce::juce_gui_basics
+    juce::juce_audio_processors
+)
+target_compile_definitions(user_preset_test PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+)
+
 # ── Offline demo renderer (headless) ─────────────────────────────────────────
 add_executable(demo_render
     tools/demo_render.cpp
