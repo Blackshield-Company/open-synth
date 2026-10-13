@@ -1,0 +1,18 @@
+Open Synth
+Copyright (C) 2026 Blackshield Company
+Licensed under AGPL-3.0-only (see LICENSE).
+
+Third-party components
+- JUCE 8 — Raw Material Software Limited, used under the AGPLv3 option, https://juce.com
+- libs/clap-juce-extensions — MIT, https://github.com/free-audio/clap-juce-extensions (bundles the CLAP SDK, MIT)
+
+Bundled sample libraries (git submodules under samples/)
+- piano-upright-kw — FreePats, CC0-1.0, https://github.com/freepats/upright-piano-KW
+- piano-splendid-grand — Akai samples released into the public domain, SFZ mapping by sfzinstruments, https://github.com/sfzinstruments/SplendidGrandPiano
+- drums-muldjordkit — FreePats, CC-BY-4.0 (attribution required), https://github.com/freepats/muldjordkit
+- bass-electric-yr — FreePats, CC0-1.0, https://github.com/freepats/electric-bass-YR
+- guitar-spanish-classical — FreePats, CC0-1.0, https://github.com/freepats/spanish-classical-guitar
+- drums-colombo-adk — FreePats, GPL-2.0-or-later with an exception permitting use in compositions, https://github.com/freepats/colomboADK
+- guitar-electric-clean — FreePats, CC0-1.0, https://github.com/freepats/e-guitar-FSBS-clean
+
+Full license texts are included in each component's directory/upstream repository.

@@ -4,6 +4,9 @@ All notable changes to Open Synth are documented here.
 
 ## [Unreleased]
 
+### Changed
+- **License changed from Apache-2.0 to AGPL-3.0-only** as of the next release, because JUCE is used under its AGPLv3 option. Releases up to and including 2.2.0 remain under Apache-2.0. Third-party licenses are listed in the new NOTICE file.
+
 ## [2.2.0] — 2026-10-12
 
 ### Fixed

@@ -1,7 +1,7 @@
 # Open Synth
 
-[![Build](https://github.com/synthalorian/open-synth/actions/workflows/build.yml/badge.svg)](https://github.com/synthalorian/open-synth/actions/workflows/build.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+[![Build](https://github.com/Blackshield-Company/open-synth/actions/workflows/build.yml/badge.svg)](https://github.com/Blackshield-Company/open-synth/actions/workflows/build.yml)
+[![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
 [![C++20](https://img.shields.io/badge/standard-C%2B%2B20-blue)](README.md)
 
 ![Open Synth](assets/social_preview.png)
@@ -234,9 +234,13 @@ This is the same configuration the `windows-x86_64` CI job builds on every push.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Copyright (C) 2026 Blackshield Company.
 
-Bundled sample libraries are CC0 / public domain (see `samples/` submodule sources: freepats, sfzinstruments).
+Open Synth is licensed under the GNU Affero General Public License v3.0 only (SPDX: AGPL-3.0-only) — see [LICENSE](LICENSE). This is because JUCE is used under its AGPLv3 option. Releases up to and including 2.2.0 were published under Apache-2.0.
+
+Third-party components and their licenses are listed in [NOTICE](NOTICE).
+
+Bundled sample libraries (git submodules under `samples/`) keep their own licenses (CC0, public domain, CC-BY-4.0, GPL-2.0-or-later with a composition exception); see [NOTICE](NOTICE).
 
 ## Credits
 
